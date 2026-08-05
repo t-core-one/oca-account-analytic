@@ -23,6 +23,20 @@ class AccountMoveLine(models.Model):
                 rec.analytic_tag_ids = rec.analytic_account_id.default_analytic_tag_ids
             else:
                 rec.analytic_tag_ids = False
+        self._sync_analytic_dimension_fields()
+
+    def _sync_analytic_dimension_fields(self):
+        # analytic_tag_dimension fills its x_dimension_* fields only when
+        # analytic_tag_ids arrives through create/write vals; values assigned
+        # by this compute are flushed directly and bypass that hook, so
+        # mirror the dimension fields here as well.
+        dim_fields = [f for f in self._fields if f.startswith("x_dimension_")]
+        if not dim_fields:
+            return
+        for rec in self:
+            values = rec.analytic_tag_ids.get_dimension_values()
+            for fname in dim_fields:
+                rec[fname] = values.get(fname, False)
 
     @api.model_create_multi
     def create(self, vals_list):
